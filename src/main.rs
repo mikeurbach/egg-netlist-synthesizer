@@ -12,24 +12,36 @@ fn main() {
       }
     }
     let rules: &[Rewrite<BooleanLanguage, ()>] = &[
+        // Axioms of Boolean logic from Wikipedia + DeMorgan's Laws.
+        rw!("associate-and"; "(& ?x (& ?y ?z))" => "(& (& ?x ?y) ?z)"),
+        rw!("associate-or"; "(| ?x (| ?y ?z))" => "(| (| ?x ?y) ?z)"),
         rw!("commute-and"; "(& ?x ?y)" => "(& ?y ?x)"),
         rw!("commute-or"; "(| ?x ?y)" => "(| ?y ?x)"),
-        rw!("demorgan-and"; "(! (& ?x ?y))" => "(| (! ?x) (! ?y))"),
-        rw!("demorgan-or"; "(! (| ?x ?y))" => "(& (! ?x) (! ?y))"),
-        rw!("and-0"; "(& ?x 0)" => "0"),
-        rw!("and-1"; "(& ?x 1)" => "?x"),
-        rw!("or-0"; "(| ?x 0)" => "?x"),
-        rw!("or-1"; "(| ?x 1)" => "1"),
+        rw!("distribute-and"; "(& ?x (| ?y ?z))" => "(| (& ?x ?y) (& ?x ?z))"),
+        rw!("distribute-or"; "(| ?x (& ?y ?z))" => "(& (| ?x ?y) (| ?x ?z))"),
+        rw!("identity-and"; "(& ?x 1)" => "?x"),
+        rw!("identity-or"; "(| ?x 0)" => "?x"),
+        rw!("annihilate-and"; "(& ?x 0)" => "0"),
+        rw!("annihilate-or"; "(| ?x 1)" => "1"),
+        rw!("idempotent-and"; "(& ?x ?x)" => "?x"),
+        rw!("idempotent-or"; "(| ?x ?x)" => "?x"),
+        rw!("absorb-and"; "(& ?x (| ?x ?y))" => "?x"),
+        rw!("absorb-or"; "(| ?x (& ?x ?y))" => "?x"),
+        rw!("complement-and"; "(& ?x (! ?x))" => "0"),
+        rw!("complement-or"; "(| ?x (! ?x))" => "1"),
         rw!("not-0"; "(! 0)" => "1"),
         rw!("not-1"; "(! 1)" => "0"),
         rw!("not-not"; "(! (! ?x))" => "?x"),
-        rw!("nand2"; "(| (! ?x) (! ?y))" => "nand2"),
+        rw!("demorgan-and"; "(! (& ?x ?y))" => "(| (! ?x) (! ?y))"),
+        rw!("demorgan-or"; "(! (| ?x ?y))" => "(& (! ?x) (! ?y))"),
+        // Definitions of gates from cell library.
+        rw!("nand2"; "(| (! ?x) (! ?y))" => "(nand2 ?x ?y)"),
     ];
 
     // While it may look like we are working with numbers,
     // SymbolLang stores everything as strings.
     // We can make our own Language later to work with other types.
-    let start = "(! (& A B))".parse().unwrap();
+    let start = "(! (& a b))".parse().unwrap();
 
     // That's it! We can run equality saturation now.
     let mut runner = Runner::default()
