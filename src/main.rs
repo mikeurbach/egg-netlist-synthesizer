@@ -19,7 +19,7 @@ fn main() {
         rewrite!("commute-and"; "(& ?x ?y)" => "(& ?y ?x)"),
         rewrite!("commute-or"; "(| ?x ?y)" => "(| ?y ?x)"),
         rewrite!("distribute-and"; "(& ?x (| ?y ?z))" => "(| (& ?x ?y) (& ?x ?z))"),
-        rewrite!("distribute-or"; "(| ?x (& ?y ?z))" => "(& (| ?x ?y) (| ?x ?z))"),
+        rewrite!("distribute-or"; "(& (| ?x ?y) (| ?x ?z))" => "(| ?x (& ?y ?z))"),
         rewrite!("identity-and"; "(& ?x 1)" => "?x"),
         rewrite!("identity-or"; "(| ?x 0)" => "?x"),
         rewrite!("annihilate-and"; "(& ?x 0)" => "0"),
