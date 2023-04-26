@@ -14,8 +14,8 @@ fn main() {
 
     let rules: &[Rewrite<BooleanLanguage, ()>] = &[
         // Axioms of Boolean logic from Wikipedia + DeMorgan's Laws.
-        rewrite!("associate-and"; "(& ?x (& ?y ?z))" => "(& (& ?x ?y) ?z)"),
-        rewrite!("associate-or"; "(| ?x (| ?y ?z))" => "(| (| ?x ?y) ?z)"),
+        rewrite!("associate-and"; "(& (& ?x ?y) ?z)" => "(& ?x (& ?y ?z))"),
+        rewrite!("associate-or"; "(| (| ?x ?y) ?z)" => "(| ?x (| ?y ?z))"),
         rewrite!("commute-and"; "(& ?x ?y)" => "(& ?y ?x)"),
         rewrite!("commute-or"; "(| ?x ?y)" => "(| ?y ?x)"),
         rewrite!("distribute-and"; "(& ?x (| ?y ?z))" => "(| (& ?x ?y) (& ?x ?z))"),
