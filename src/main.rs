@@ -1,5 +1,40 @@
+use serde::Deserialize;
+use serde_json;
+use std::collections::HashMap;
+use std::error::Error;
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
+
+#[derive(Deserialize, Debug)]
+struct Cell {
+    name: String,
+    area: f64,
+    power: f64,
+    timing: f64,
+    searcher: String,
+    applier: String,
+}
+
+fn load_library<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Cell>, Box<dyn Error>> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let cells: Vec<Cell> = serde_json::from_reader(reader)?;
+
+    let mut library = HashMap::new();
+    for cell in cells {
+        library.insert(cell.name.clone(), cell);
+    }
+    Ok(library)
+}
+
 fn main() {
     use egg::*;
+
+    let library =
+        load_library("/Users/mikeu/skywater-preparation/sky130_fd_sc_hd_tt_100C_1v80.json")
+            .unwrap();
+    println!("library: {:#?}", library);
 
     define_language! {
       enum BooleanLanguage {
