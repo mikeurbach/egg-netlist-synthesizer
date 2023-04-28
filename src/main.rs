@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 struct Cell {
     name: String,
     area: f64,
@@ -34,7 +34,6 @@ fn main() {
     let library =
         load_library("/Users/mikeu/skywater-preparation/sky130_fd_sc_hd_tt_100C_1v80.json")
             .unwrap();
-    println!("library: {:#?}", library);
 
     define_language! {
       enum BooleanLanguage {
@@ -47,8 +46,11 @@ fn main() {
       }
     }
 
-    let rules: &[Rewrite<BooleanLanguage, ()>] = &[
-        // Axioms of Boolean logic from Wikipedia + DeMorgan's Laws.
+    // Axioms of Boolean logic from Wikipedia + DeMorgan's Laws. The goal is
+    // include some basic folds and otherwise canonicalize towards
+    // right-associative DNF, which is how the logical functions in the library
+    // are expressed.
+    let mut rules: Vec<Rewrite<BooleanLanguage, ()>> = vec![
         rewrite!("associate-and"; "(& (& ?x ?y) ?z)" => "(& ?x (& ?y ?z))"),
         rewrite!("associate-or"; "(| (| ?x ?y) ?z)" => "(| ?x (| ?y ?z))"),
         rewrite!("commute-and"; "(& ?x ?y)" => "(& ?y ?x)"),
@@ -70,12 +72,18 @@ fn main() {
         rewrite!("not-not"; "(! (! ?x))" => "?x"),
         rewrite!("demorgan-and"; "(! (& ?x ?y))" => "(| (! ?x) (! ?y))"),
         rewrite!("demorgan-or"; "(! (| ?x ?y))" => "(& (! ?x) (! ?y))"),
-        // Definitions of gates from cell library.
-        rewrite!("and2"; "(& ?x ?y)" => "(and2 ?x ?y)"),
-        rewrite!("or2"; "(| ?x ?y)" => "(or2 ?x ?y)"),
-        rewrite!("nand2"; "(| (! ?x) (! ?y))" => "(nand2 ?x ?y)"),
-        rewrite!("xor2"; "(| (& ?x (! ?y)) (& (! ?x) ?y))" => "(xor2 ?x ?y)"),
     ];
+
+    // Add rewrites from the library.
+    for cell in library.values() {
+        rules.push(rewrite!(cell.name; {
+            let searcher: Pattern<BooleanLanguage> = cell.searcher.parse().unwrap();
+            searcher
+        } => {
+            let applier: Pattern<BooleanLanguage> = cell.applier.parse().unwrap();
+            applier
+        }));
+    }
 
     // A simply cost function that prefers gates over boolean logic, and
     // literals or symbols the most. Otherwise, this is basically counting up
@@ -103,26 +111,17 @@ fn main() {
 
     let cost_function = GateCostFunction {};
 
-    // While it may look like we are working with numbers,
-    // SymbolLang stores everything as strings.
-    // We can make our own Language later to work with other types.
-    let start = "(| (& (| a1 b1) (and a0 b0)) (& a1 (& a0 b0)))"
+    let start = "(| (& (| a1 b1) (& a0 b0)) (& a1 (& a0 b0)))"
         .parse()
         .unwrap();
 
-    // That's it! We can run equality saturation now.
     let mut runner = Runner::default()
         .with_explanations_enabled()
         .with_expr(&start)
-        .run(rules);
+        .run(&rules);
 
-    // Extractors can take a user-defined cost function,
-    // we'll use the egg-provided AstSize for now
     let extractor = Extractor::new(&runner.egraph, cost_function);
 
-    // We want to extract the best expression represented in the
-    // same e-class as our initial expression, not from the whole e-graph.
-    // Luckily the runner stores the eclass Id where we put the initial expression.
     let (best_cost, best_expr) = extractor.find_best(runner.roots[0]);
 
     println!(
