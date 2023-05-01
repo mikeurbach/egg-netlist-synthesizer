@@ -46,10 +46,9 @@ fn main() {
       }
     }
 
-    // Axioms of Boolean logic from Wikipedia + DeMorgan's Laws. The goal is
-    // include some basic folds and otherwise canonicalize towards
-    // right-associative DNF, which is how the logical functions in the library
-    // are expressed.
+    // Some axioms of Boolean logic. The goal is to allow exploration and
+    // canonicalize towards right-associative DNF, which is how the logical
+    // functions in the library are expressed.
     let mut rules: Vec<Rewrite<BooleanLanguage, ()>> = vec![
         rewrite!("associate-and"; "(& (& ?x ?y) ?z)" => "(& ?x (& ?y ?z))"),
         rewrite!("associate-or"; "(| (| ?x ?y) ?z)" => "(| ?x (| ?y ?z))"),
@@ -57,19 +56,6 @@ fn main() {
         rewrite!("commute-or"; "(| ?x ?y)" => "(| ?y ?x)"),
         rewrite!("distribute-and"; "(& ?x (| ?y ?z))" => "(| (& ?x ?y) (& ?x ?z))"),
         rewrite!("distribute-or"; "(& (| ?x ?y) (| ?x ?z))" => "(| ?x (& ?y ?z))"),
-        rewrite!("identity-and"; "(& ?x 1)" => "?x"),
-        rewrite!("identity-or"; "(| ?x 0)" => "?x"),
-        rewrite!("annihilate-and"; "(& ?x 0)" => "0"),
-        rewrite!("annihilate-or"; "(| ?x 1)" => "1"),
-        rewrite!("idempotent-and"; "(& ?x ?x)" => "?x"),
-        rewrite!("idempotent-or"; "(| ?x ?x)" => "?x"),
-        rewrite!("absorb-and"; "(& ?x (| ?x ?y))" => "?x"),
-        rewrite!("absorb-or"; "(| ?x (& ?x ?y))" => "?x"),
-        rewrite!("complement-and"; "(& ?x (! ?x))" => "0"),
-        rewrite!("complement-or"; "(| ?x (! ?x))" => "1"),
-        rewrite!("not-0"; "(! 0)" => "1"),
-        rewrite!("not-1"; "(! 1)" => "0"),
-        rewrite!("not-not"; "(! (! ?x))" => "?x"),
         rewrite!("demorgan-and"; "(! (& ?x ?y))" => "(| (! ?x) (! ?y))"),
         rewrite!("demorgan-or"; "(! (| ?x ?y))" => "(& (! ?x) (! ?y))"),
     ];
@@ -118,6 +104,10 @@ fn main() {
     let mut runner = Runner::default()
         .with_explanations_enabled()
         .with_expr(&start)
+        .with_hook(|runner| {
+            println!("EGraph size: {}", runner.egraph.total_size());
+            Ok(())
+        })
         .run(&rules);
 
     let extractor = Extractor::new(&runner.egraph, cost_function);
