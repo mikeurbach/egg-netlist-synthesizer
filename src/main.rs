@@ -2,10 +2,12 @@ use egg::*;
 use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
+use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use std::str::FromStr;
 
 // Represents a cell in a library.
 #[derive(Deserialize)]
@@ -44,33 +46,68 @@ define_language! {
 }
 
 // A simpl cost function that prefers gates over boolean logic, and
-// literals or symbols the most. Otherwise, this is basically counting up
-// the expression size. This is intended to push the search to optimize the
-// logic, then map to gates.
-struct GateCostFunction;
-impl CostFunction<BooleanLanguage> for GateCostFunction {
-    type Cost = i32;
+// literals or symbols the most. This is intended to push the search to optimize
+// the logic, then map to gates. Among gates, the relative cost is dictated by
+// the chosen metric and the cell library.
+
+enum Metric {
+    Area,
+    Power,
+    Timing,
+}
+
+impl FromStr for Metric {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Metric, Self::Err> {
+        match input {
+            "Area" => Ok(Metric::Area),
+            "Power" => Ok(Metric::Power),
+            "Timing" => Ok(Metric::Timing),
+            _ => Err(()),
+        }
+    }
+}
+
+struct GateCostFunction<'a> {
+    metric: Metric,
+    library: &'a HashMap<String, Cell>,
+}
+
+impl GateCostFunction<'_> {
+    fn gate_cost(&self, name: &Symbol) -> f64 {
+        let cell = self.library.get(&name.to_string()).unwrap();
+        match self.metric {
+            Metric::Area => cell.area,
+            Metric::Power => cell.power,
+            Metric::Timing => cell.timing,
+        }
+    }
+}
+
+impl CostFunction<BooleanLanguage> for GateCostFunction<'_> {
+    type Cost = f64;
 
     fn cost<C>(&mut self, enode: &BooleanLanguage, mut costs: C) -> Self::Cost
     where
         C: FnMut(Id) -> Self::Cost,
     {
         let op_cost = match enode {
-            BooleanLanguage::And(_) => 2,
-            BooleanLanguage::Or(_) => 2,
-            BooleanLanguage::Not(_) => 2,
-            BooleanLanguage::Gate(_, _) => 1,
-            BooleanLanguage::Num(_) => 0,
-            BooleanLanguage::Symbol(_) => 0,
+            BooleanLanguage::And(_) => 1000000000.0,
+            BooleanLanguage::Or(_) => 1000000000.0,
+            BooleanLanguage::Not(_) => 1000000000.0,
+            BooleanLanguage::Gate(name, _) => self.gate_cost(name),
+            BooleanLanguage::Num(_) => 0.0,
+            BooleanLanguage::Symbol(_) => 0.0,
         };
         enode.fold(op_cost, |sum, id| sum + costs(id))
     }
 }
 
 fn main() {
-    let library =
-        load_library("/Users/mikeu/skywater-preparation/sky130_fd_sc_hd_tt_100C_1v80.json")
-            .unwrap();
+    let args: Vec<String> = env::args().collect();
+    let library = load_library(&args[1]).unwrap();
+    let metric = Metric::from_str(&args[2]).unwrap();
 
     // Some axioms of Boolean logic. The goal is to allow exploration and
     // canonicalize towards right-associative DNF, which is how the logical
@@ -97,7 +134,10 @@ fn main() {
         }));
     }
 
-    let cost_function = GateCostFunction {};
+    let cost_function = GateCostFunction {
+        metric: metric,
+        library: &library,
+    };
 
     let start = "(| (& (| a1 b1) (& a0 b0)) (& a1 (& a0 b0)))"
         .parse()
