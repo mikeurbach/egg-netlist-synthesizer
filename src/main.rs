@@ -1,3 +1,4 @@
+use egg::*;
 use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
@@ -6,6 +7,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
+// Represents a cell in a library.
 #[derive(Deserialize)]
 struct Cell {
     name: String,
@@ -16,6 +18,7 @@ struct Cell {
     applier: String,
 }
 
+// Load a library of cells from disk.
 fn load_library<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Cell>, Box<dyn Error>> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -28,23 +31,46 @@ fn load_library<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Cell>, Box<dy
     Ok(library)
 }
 
-fn main() {
-    use egg::*;
+// A simple language for boolean logic and logic gates.
+define_language! {
+  enum BooleanLanguage {
+      "&" = And([Id; 2]),
+      "|" = Or([Id; 2]),
+      "!" = Not([Id; 1]),
+      Num(i32),
+      Symbol(Symbol),
+      Gate(Symbol, Vec<Id>),
+  }
+}
 
+// A simpl cost function that prefers gates over boolean logic, and
+// literals or symbols the most. Otherwise, this is basically counting up
+// the expression size. This is intended to push the search to optimize the
+// logic, then map to gates.
+struct GateCostFunction;
+impl CostFunction<BooleanLanguage> for GateCostFunction {
+    type Cost = i32;
+
+    fn cost<C>(&mut self, enode: &BooleanLanguage, mut costs: C) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost,
+    {
+        let op_cost = match enode {
+            BooleanLanguage::And(_) => 2,
+            BooleanLanguage::Or(_) => 2,
+            BooleanLanguage::Not(_) => 2,
+            BooleanLanguage::Gate(_, _) => 1,
+            BooleanLanguage::Num(_) => 0,
+            BooleanLanguage::Symbol(_) => 0,
+        };
+        enode.fold(op_cost, |sum, id| sum + costs(id))
+    }
+}
+
+fn main() {
     let library =
         load_library("/Users/mikeu/skywater-preparation/sky130_fd_sc_hd_tt_100C_1v80.json")
             .unwrap();
-
-    define_language! {
-      enum BooleanLanguage {
-          "&" = And([Id; 2]),
-          "|" = Or([Id; 2]),
-          "!" = Not([Id; 1]),
-          Num(i32),
-          Symbol(Symbol),
-          Gate(Symbol, Vec<Id>),
-      }
-    }
 
     // Some axioms of Boolean logic. The goal is to allow exploration and
     // canonicalize towards right-associative DNF, which is how the logical
@@ -69,30 +95,6 @@ fn main() {
             let applier: Pattern<BooleanLanguage> = cell.applier.parse().unwrap();
             applier
         }));
-    }
-
-    // A simply cost function that prefers gates over boolean logic, and
-    // literals or symbols the most. Otherwise, this is basically counting up
-    // the expression size. This is intended to push the search to optimize the
-    // logic, then map to gates.
-    struct GateCostFunction;
-    impl CostFunction<BooleanLanguage> for GateCostFunction {
-        type Cost = i32;
-
-        fn cost<C>(&mut self, enode: &BooleanLanguage, mut costs: C) -> Self::Cost
-        where
-            C: FnMut(Id) -> Self::Cost,
-        {
-            let op_cost = match enode {
-                BooleanLanguage::And(_) => 2,
-                BooleanLanguage::Or(_) => 2,
-                BooleanLanguage::Not(_) => 2,
-                BooleanLanguage::Gate(_, _) => 1,
-                BooleanLanguage::Num(_) => 0,
-                BooleanLanguage::Symbol(_) => 0,
-            };
-            enode.fold(op_cost, |sum, id| sum + costs(id))
-        }
     }
 
     let cost_function = GateCostFunction {};
