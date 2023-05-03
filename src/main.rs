@@ -10,6 +10,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 // Represents a cell in a library.
+
 #[derive(Deserialize)]
 struct Cell {
     name: String,
@@ -21,6 +22,7 @@ struct Cell {
 }
 
 // Load a library of cells from disk.
+
 fn load_library<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Cell>, Box<dyn Error>> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -34,6 +36,7 @@ fn load_library<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Cell>, Box<dy
 }
 
 // A simple language for boolean logic and logic gates.
+
 define_language! {
   enum BooleanLanguage {
       "&" = And([Id; 2]),
@@ -134,34 +137,38 @@ fn main() {
         }));
     }
 
+    // Instantiate our cost function with the provided metric and libary.
     let cost_function = GateCostFunction {
         metric: metric,
         library: &library,
     };
 
+    // The start expression to synthesize.
     let start = "(| (& (| a1 b1) (& a0 b0)) (& a1 (& a0 b0)))"
         .parse()
         .unwrap();
 
+    // Run the optimizer with some debug info.
     let mut runner = Runner::default()
         .with_explanations_enabled()
         .with_expr(&start)
-        .with_hook(|runner| {
-            println!("EGraph size: {}", runner.egraph.total_size());
-            Ok(())
-        })
         .run(&rules);
 
+    // Instantiate an extractor.
     let extractor = Extractor::new(&runner.egraph, cost_function);
 
+    // Extract the best expression.
     let (best_cost, best_expr) = extractor.find_best(runner.roots[0]);
 
+    // Provide some debug output.
+    runner.print_report();
+
     println!(
-        "explanation: {}",
+        "Explanation\n===========\n{}",
         runner
             .explain_equivalence(&start, &best_expr)
             .get_flat_string()
     );
-    println!("best expr: {}", best_expr);
-    println!("best cost: {}", best_cost);
+
+    println!("\nCost\n====\n{}", best_cost);
 }
