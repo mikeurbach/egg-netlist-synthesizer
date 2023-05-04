@@ -112,6 +112,9 @@ fn main() {
     let library = load_library(&args[1]).unwrap();
     let metric = Metric::from_str(&args[2]).unwrap();
 
+    // The start expression to synthesize.
+    let start = args[3].parse().unwrap();
+
     // Some axioms of Boolean logic. The goal is to allow exploration and
     // canonicalize towards right-associative DNF, which is how the logical
     // functions in the library are expressed.
@@ -142,11 +145,6 @@ fn main() {
         metric: metric,
         library: &library,
     };
-
-    // The start expression to synthesize.
-    let start = "(| (& (| a1 b1) (& a0 b0)) (& a1 (& a0 b0)))"
-        .parse()
-        .unwrap();
 
     // Run the optimizer with some debug info.
     let mut runner = Runner::default()
