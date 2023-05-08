@@ -179,6 +179,8 @@ impl Synthesizer {
                 .get_flat_string()
         );
 
+        println!("\nResult\n======\n{}", best_expr);
+
         println!("\nCost\n====\n{}", best_cost);
     }
 }
