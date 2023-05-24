@@ -38,6 +38,8 @@ fn load_library<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Cell>, Box<dy
 
 define_language! {
   enum BooleanLanguage {
+      "module" = Module(Vec<Id>),
+      "let" = Let([Id; 2]),
       "&" = And([Id; 2]),
       "|" = Or([Id; 2]),
       "!" = Not([Id; 1]),
@@ -49,8 +51,9 @@ define_language! {
 
 // A simpl cost function that prefers gates over boolean logic, and
 // literals or symbols the most. This is intended to push the search to optimize
-// the logic, then map to gates. Among gates, the relative cost is dictated by
-// the chosen metric and the cell library.
+// the logic, then map to gates. Symbols are free to encourage reusing let
+// expressions when possible. Among gates, the relative cost is dictated by the
+// chosen metric and the cell library.
 
 enum Metric {
     Area,
@@ -87,22 +90,37 @@ impl GateCostFunction {
     }
 }
 
-impl CostFunction<BooleanLanguage> for &GateCostFunction {
-    type Cost = f64;
-
-    fn cost<C>(&mut self, enode: &BooleanLanguage, mut costs: C) -> Self::Cost
-    where
-        C: FnMut(Id) -> Self::Cost,
-    {
+impl LpCostFunction<BooleanLanguage, ()> for &GateCostFunction {
+    fn node_cost(
+        &mut self,
+        egraph: &EGraph<BooleanLanguage, ()>,
+        _eclass: Id,
+        enode: &BooleanLanguage,
+    ) -> f64 {
+        // Cost function for each ENode.
         let op_cost = match enode {
             BooleanLanguage::And(_) => 1000000000.0,
             BooleanLanguage::Or(_) => 1000000000.0,
             BooleanLanguage::Not(_) => 1000000000.0,
             BooleanLanguage::Gate(name, _) => self.gate_cost(name),
+            BooleanLanguage::Module(_) => 0.0,
+            BooleanLanguage::Let(_) => 0.0,
             BooleanLanguage::Num(_) => 0.0,
             BooleanLanguage::Symbol(_) => 0.0,
         };
-        enode.fold(op_cost, |sum, id| sum + costs(id))
+
+        // Compute the cost of a subtree of expressions by taking the minimum
+        // cost of all the ENodes in each child EClass.
+        enode.fold(op_cost, |sum, id| {
+            let mut min_cost = 1000000000.0;
+            for child_enode in &egraph[id].nodes {
+                let child_cost = self.node_cost(egraph, id, child_enode);
+                if child_cost < min_cost {
+                    min_cost = child_cost;
+                }
+            }
+            sum + min_cost
+        })
     }
 }
 
@@ -128,6 +146,9 @@ impl Synthesizer {
             rewrite!("distribute-or"; "(& (| ?x ?y) (| ?x ?z))" => "(| ?x (& ?y ?z))"),
             rewrite!("demorgan-and"; "(! (& ?x ?y))" => "(| (! ?x) (! ?y))"),
             rewrite!("demorgan-or"; "(! (| ?x ?y))" => "(& (! ?x) (! ?y))"),
+            multi_rewrite!("inline-let-and"; "?a = (let ?x ?y), ?b = (& ?x ?z)" => "?b = (& ?y ?z)"),
+            multi_rewrite!("inline-let-or"; "?a = (let ?x ?y), ?b = (| ?x ?z)" => "?b = (| ?y ?z)"),
+            multi_rewrite!("inline-let-not"; "?a = (let ?x ?y), ?b = (! ?x)" => "?b = (! ?y)"),
         ];
 
         // Add rewrites from the library.
@@ -164,10 +185,13 @@ impl Synthesizer {
             .run(&self.rules);
 
         // Instantiate an extractor.
-        let extractor = Extractor::new(&runner.egraph, &self.cost_function);
+        let mut extractor = LpExtractor::new(&runner.egraph, &self.cost_function);
 
         // Extract the best expression.
-        let (best_cost, best_expr) = extractor.find_best(runner.roots[0]);
+        let best_expr = extractor.solve(runner.roots[0]);
+
+        // Let explanations mutably borrow the runner.
+        drop(extractor);
 
         // Provide some debug output.
         runner.print_report();
@@ -181,6 +205,12 @@ impl Synthesizer {
 
         println!("\nResult\n======\n{}", best_expr);
 
-        println!("\nCost\n====\n{}", best_cost);
+        // Produce a visualization of the EGraph.
+        runner
+            .egraph
+            .dot()
+            .with_config_line("ranksep=1")
+            .to_svg("egraph.svg")
+            .unwrap();
     }
 }
