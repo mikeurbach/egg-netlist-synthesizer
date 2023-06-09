@@ -138,12 +138,8 @@ impl Synthesizer {
         // canonicalize towards right-associative DNF, which is how the logical
         // functions in the library are expressed.
         let mut rules: Vec<Rewrite<BooleanLanguage, ()>> = vec![
-            rewrite!("associate-and"; "(& (& ?x ?y) ?z)" => "(& ?x (& ?y ?z))"),
-            rewrite!("associate-or"; "(| (| ?x ?y) ?z)" => "(| ?x (| ?y ?z))"),
             rewrite!("commute-and"; "(& ?x ?y)" => "(& ?y ?x)"),
             rewrite!("commute-or"; "(| ?x ?y)" => "(| ?y ?x)"),
-            rewrite!("distribute-and"; "(& ?x (| ?y ?z))" => "(| (& ?x ?y) (& ?x ?z))"),
-            rewrite!("distribute-or"; "(& (| ?x ?y) (| ?x ?z))" => "(| ?x (& ?y ?z))"),
             rewrite!("demorgan-and"; "(! (& ?x ?y))" => "(| (! ?x) (! ?y))"),
             rewrite!("demorgan-or"; "(! (| ?x ?y))" => "(& (! ?x) (! ?y))"),
             multi_rewrite!("inline-let-and"; "?a = (let ?x ?y), ?b = (& ?x ?z)" => "?b = (& ?y ?z)"),
