@@ -210,3 +210,40 @@ impl Synthesizer {
             .unwrap();
     }
 }
+
+/// C FFI.
+
+#[no_mangle]
+pub extern "C" fn create_module() -> usize {
+    let mut expr = RecExpr::default();
+    let node = BooleanLanguage::from_op("module", vec![]).unwrap();
+    usize::from(expr.add(node))
+}
+
+#[no_mangle]
+pub extern "C" fn create_let(name: usize, sub_expr: usize) -> usize {
+    let mut expr = RecExpr::default();
+    let node = BooleanLanguage::from_op("let", vec![Id::from(name), Id::from(sub_expr)]).unwrap();
+    usize::from(expr.add(node))
+}
+
+#[no_mangle]
+pub extern "C" fn create_and(lhs: usize, rhs: usize) -> usize {
+    let mut expr = RecExpr::default();
+    let node = BooleanLanguage::from_op("&", vec![Id::from(lhs), Id::from(rhs)]).unwrap();
+    usize::from(expr.add(node))
+}
+
+#[no_mangle]
+pub extern "C" fn create_or(lhs: usize, rhs: usize) -> usize {
+    let mut expr = RecExpr::default();
+    let node = BooleanLanguage::from_op("|", vec![Id::from(lhs), Id::from(rhs)]).unwrap();
+    usize::from(expr.add(node))
+}
+
+#[no_mangle]
+pub extern "C" fn create_not(rhs: usize) -> usize {
+    let mut expr = RecExpr::default();
+    let node = BooleanLanguage::from_op("!", vec![Id::from(rhs)]).unwrap();
+    usize::from(expr.add(node))
+}
