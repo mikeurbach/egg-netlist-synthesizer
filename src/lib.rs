@@ -210,34 +210,96 @@ impl Synthesizer {
 
 /// C++ FFI.
 
+struct BooleanExpression {
+    tpe: BooleanExpressionType,
+    name: String,
+    children: Vec<BooleanExpression>,
+}
+
+enum BooleanExpressionType {
+    Module,
+    Let,
+    And,
+    Or,
+    Not,
+    Bit,
+    Symbol,
+    Gate,
+}
+
+fn build_module(stmts: Vec<BooleanExpression>) -> Box<BooleanExpression> {
+    Box::new(BooleanExpression {
+        tpe: BooleanExpressionType::Module,
+        name: "module".to_string(),
+        children: stmts,
+    })
+}
+
+fn build_let(name: String, expr: Box<BooleanExpression>) -> Box<BooleanExpression> {
+    Box::new(BooleanExpression {
+        tpe: BooleanExpressionType::Let,
+        name: name,
+        children: vec![*expr],
+    })
+}
+
+fn build_and(lhs: Box<BooleanExpression>, rhs: Box<BooleanExpression>) -> Box<BooleanExpression> {
+    Box::new(BooleanExpression {
+        tpe: BooleanExpressionType::And,
+        name: "&".to_string(),
+        children: vec![*lhs, *rhs],
+    })
+}
+
+fn build_or(lhs: Box<BooleanExpression>, rhs: Box<BooleanExpression>) -> Box<BooleanExpression> {
+    Box::new(BooleanExpression {
+        tpe: BooleanExpressionType::Or,
+        name: "|".to_string(),
+        children: vec![*lhs, *rhs],
+    })
+}
+
+fn build_not(expr: Box<BooleanExpression>) -> Box<BooleanExpression> {
+    Box::new(BooleanExpression {
+        tpe: BooleanExpressionType::Not,
+        name: "!".to_string(),
+        children: vec![*expr],
+    })
+}
+
+fn build_bit(name: String) -> Box<BooleanExpression> {
+    Box::new(BooleanExpression {
+        tpe: BooleanExpressionType::Bit,
+        name: name,
+        children: vec![],
+    })
+}
+
+fn build_symbol(name: String) -> Box<BooleanExpression> {
+    Box::new(BooleanExpression {
+        tpe: BooleanExpressionType::Symbol,
+        name: name,
+        children: vec![],
+    })
+}
+
 #[cxx::bridge]
 mod ffi {
-    struct BooleanExpression {
-        tpe: BooleanExpressionType,
-        name: String,
-        children: Vec<BooleanExpression>,
-    }
+    extern "Rust" {
+        type BooleanExpression;
 
-    enum BooleanExpressionType {
-        Module,
-        Let,
-        And,
-        Or,
-        Not,
-        Bit,
-        Symbol,
-        Gate,
-    }
-
-    unsafe extern "C++" {
-        include!("egg-netlist-synthesizer/include/ffi.h");
-
-        fn build_module(stmts: Vec<BooleanExpression>) -> BooleanExpression;
-        fn build_let(name: String, expr: BooleanExpression) -> BooleanExpression;
-        fn build_and(lhs: BooleanExpression, rhs: BooleanExpression) -> BooleanExpression;
-        fn build_or(lhs: BooleanExpression, rhs: BooleanExpression) -> BooleanExpression;
-        fn build_not(expr: BooleanExpression) -> BooleanExpression;
-        fn build_bit(name: String) -> BooleanExpression;
-        fn build_symbol(name: String) -> BooleanExpression;
+        fn build_module(stmts: Vec<BooleanExpression>) -> Box<BooleanExpression>;
+        fn build_let(name: String, expr: Box<BooleanExpression>) -> Box<BooleanExpression>;
+        fn build_and(
+            lhs: Box<BooleanExpression>,
+            rhs: Box<BooleanExpression>,
+        ) -> Box<BooleanExpression>;
+        fn build_or(
+            lhs: Box<BooleanExpression>,
+            rhs: Box<BooleanExpression>,
+        ) -> Box<BooleanExpression>;
+        fn build_not(expr: Box<BooleanExpression>) -> Box<BooleanExpression>;
+        fn build_bit(name: String) -> Box<BooleanExpression>;
+        fn build_symbol(name: String) -> Box<BooleanExpression>;
     }
 }
