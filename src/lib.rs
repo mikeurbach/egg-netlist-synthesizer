@@ -37,7 +37,7 @@ fn load_library<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Cell>, Box<dy
 // A simple language for boolean logic and logic gates.
 
 define_language! {
-  enum BooleanLanguage {
+  pub enum BooleanLanguage {
       "module" = Module(Vec<Id>),
       "let" = Let([Id; 2]),
       "&" = And([Id; 2]),
@@ -170,10 +170,7 @@ impl Synthesizer {
         }
     }
 
-    pub fn run(&self, start_expr: &str) {
-        // The start expression to synthesize.
-        let start: RecExpr<BooleanLanguage> = start_expr.parse().unwrap();
-
+    pub fn run(&self, start: RecExpr<BooleanLanguage>) {
         // Run the optimizer with some debug info.
         let mut runner = Runner::default()
             .with_explanations_enabled()

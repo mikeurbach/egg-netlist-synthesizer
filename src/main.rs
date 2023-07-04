@@ -6,5 +6,5 @@ fn main() {
 
     let synthesizer = Synthesizer::new(&args[1], &args[2]);
 
-    synthesizer.run(&args[3]);
+    synthesizer.run(args[3].parse().unwrap());
 }
