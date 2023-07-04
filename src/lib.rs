@@ -210,6 +210,9 @@ impl Synthesizer {
 
 /// C++ FFI.
 
+// RecExpr<BooleanLanguage> cannot be used across FFI with cxx, so use an
+// equivalent data structure.
+
 struct BooleanExpression {
     tpe: BooleanExpressionType,
     name: String,
@@ -226,6 +229,8 @@ enum BooleanExpressionType {
     Symbol,
     Gate,
 }
+
+// Expression builders.
 
 fn build_module(stmts: Vec<BooleanExpression>) -> Box<BooleanExpression> {
     Box::new(BooleanExpression {
@@ -283,11 +288,30 @@ fn build_symbol(name: String) -> Box<BooleanExpression> {
     })
 }
 
+// Synthesizer API.
+
+fn synthesizer_new(library_path: String, metric_name: String) -> Box<Synthesizer> {
+    Box::new(Synthesizer::new(
+        library_path.as_str(),
+        metric_name.as_str(),
+    ))
+}
+
+fn synthesizer_run(
+    synthesizer: Box<Synthesizer>,
+    expr: Box<BooleanExpression>,
+) -> Box<BooleanExpression> {
+    // TODO: do something...
+    expr
+}
+
 #[cxx::bridge]
 mod ffi {
     extern "Rust" {
         type BooleanExpression;
+        type Synthesizer;
 
+        // Expression builders.
         fn build_module(stmts: Vec<BooleanExpression>) -> Box<BooleanExpression>;
         fn build_let(name: String, expr: Box<BooleanExpression>) -> Box<BooleanExpression>;
         fn build_and(
@@ -301,5 +325,12 @@ mod ffi {
         fn build_not(expr: Box<BooleanExpression>) -> Box<BooleanExpression>;
         fn build_bit(name: String) -> Box<BooleanExpression>;
         fn build_symbol(name: String) -> Box<BooleanExpression>;
+
+        // Synthesizer API.
+        fn synthesizer_new(library_path: String, metric_name: String) -> Box<Synthesizer>;
+        fn synthesizer_run(
+            synthesizer: Box<Synthesizer>,
+            expr: Box<BooleanExpression>,
+        ) -> Box<BooleanExpression>;
     }
 }
