@@ -6,6 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cxx = "1.0"
 egg = { version = "0.9.3", features = ["lp"] }
 serde_json = "1.0.96"
 serde = { version = "1.0", features = ["derive"] }
+
+[build-dependencies]
+cxx-build = "1.0"

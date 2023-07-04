@@ -211,39 +211,36 @@ impl Synthesizer {
     }
 }
 
-/// C FFI.
+/// C++ FFI.
 
-#[no_mangle]
-pub extern "C" fn create_module() -> usize {
-    let mut expr = RecExpr::default();
-    let node = BooleanLanguage::from_op("module", vec![]).unwrap();
-    usize::from(expr.add(node))
-}
+#[cxx::bridge]
+mod ffi {
+    struct BooleanExpression {
+        tpe: BooleanExpressionType,
+        name: String,
+        children: Vec<BooleanExpression>,
+    }
 
-#[no_mangle]
-pub extern "C" fn create_let(name: usize, sub_expr: usize) -> usize {
-    let mut expr = RecExpr::default();
-    let node = BooleanLanguage::from_op("let", vec![Id::from(name), Id::from(sub_expr)]).unwrap();
-    usize::from(expr.add(node))
-}
+    enum BooleanExpressionType {
+        Module,
+        Let,
+        And,
+        Or,
+        Not,
+        Bit,
+        Symbol,
+        Gate,
+    }
 
-#[no_mangle]
-pub extern "C" fn create_and(lhs: usize, rhs: usize) -> usize {
-    let mut expr = RecExpr::default();
-    let node = BooleanLanguage::from_op("&", vec![Id::from(lhs), Id::from(rhs)]).unwrap();
-    usize::from(expr.add(node))
-}
+    unsafe extern "C++" {
+        include!("egg-netlist-synthesizer/include/ffi.h");
 
-#[no_mangle]
-pub extern "C" fn create_or(lhs: usize, rhs: usize) -> usize {
-    let mut expr = RecExpr::default();
-    let node = BooleanLanguage::from_op("|", vec![Id::from(lhs), Id::from(rhs)]).unwrap();
-    usize::from(expr.add(node))
-}
-
-#[no_mangle]
-pub extern "C" fn create_not(rhs: usize) -> usize {
-    let mut expr = RecExpr::default();
-    let node = BooleanLanguage::from_op("!", vec![Id::from(rhs)]).unwrap();
-    usize::from(expr.add(node))
+        fn build_module(stmts: Vec<BooleanExpression>) -> BooleanExpression;
+        fn build_let(name: String, expr: BooleanExpression) -> BooleanExpression;
+        fn build_and(lhs: BooleanExpression, rhs: BooleanExpression) -> BooleanExpression;
+        fn build_or(lhs: BooleanExpression, rhs: BooleanExpression) -> BooleanExpression;
+        fn build_not(expr: BooleanExpression) -> BooleanExpression;
+        fn build_bit(name: String) -> BooleanExpression;
+        fn build_symbol(name: String) -> BooleanExpression;
+    }
 }
