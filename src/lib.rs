@@ -49,6 +49,12 @@ define_language! {
   }
 }
 
+// Use the newtype idiom to define types for BooleanLanguage.
+
+pub struct BooleanExpression(pub RecExpr<BooleanLanguage>);
+pub struct BooleanEGraph(pub EGraph<BooleanLanguage, ()>);
+struct BooleanId(Id);
+
 // A simpl cost function that prefers gates over boolean logic, and
 // literals or symbols the most. This is intended to push the search to optimize
 // the logic, then map to gates. Symbols are free to encourage reusing let
@@ -170,11 +176,14 @@ impl Synthesizer {
         }
     }
 
-    pub fn run(&self, start: RecExpr<BooleanLanguage>) {
+    pub fn run(&self, egraph: BooleanEGraph, start_expr: BooleanExpression) -> BooleanExpression {
+        // Get the underlying egraph and expression.
+
         // Run the optimizer with some debug info.
         let mut runner = Runner::default()
             .with_explanations_enabled()
-            .with_expr(&start)
+            .with_egraph(egraph.0)
+            .with_expr(&start_expr.0)
             .run(&self.rules);
 
         // Instantiate an extractor.
@@ -192,7 +201,7 @@ impl Synthesizer {
         println!(
             "Explanation\n===========\n{}",
             runner
-                .explain_equivalence(&start, &best_expr)
+                .explain_equivalence(&start_expr.0, &best_expr)
                 .get_flat_string()
         );
 
@@ -205,87 +214,17 @@ impl Synthesizer {
             .with_config_line("ranksep=1")
             .to_svg("egraph.svg")
             .unwrap();
+
+        BooleanExpression(best_expr)
     }
 }
 
 /// C++ FFI.
 
-// RecExpr<BooleanLanguage> cannot be used across FFI with cxx, so use an
-// equivalent data structure.
-
-struct BooleanExpression {
-    tpe: BooleanExpressionType,
-    name: String,
-    children: Vec<BooleanExpression>,
-}
-
-enum BooleanExpressionType {
-    Module,
-    Let,
-    And,
-    Or,
-    Not,
-    Bit,
-    Symbol,
-    Gate,
-}
-
-// Expression builders.
-
-fn build_module(stmts: Vec<BooleanExpression>) -> Box<BooleanExpression> {
-    Box::new(BooleanExpression {
-        tpe: BooleanExpressionType::Module,
-        name: "module".to_string(),
-        children: stmts,
-    })
-}
-
-fn build_let(name: String, expr: Box<BooleanExpression>) -> Box<BooleanExpression> {
-    Box::new(BooleanExpression {
-        tpe: BooleanExpressionType::Let,
-        name: name,
-        children: vec![*expr],
-    })
-}
-
-fn build_and(lhs: Box<BooleanExpression>, rhs: Box<BooleanExpression>) -> Box<BooleanExpression> {
-    Box::new(BooleanExpression {
-        tpe: BooleanExpressionType::And,
-        name: "&".to_string(),
-        children: vec![*lhs, *rhs],
-    })
-}
-
-fn build_or(lhs: Box<BooleanExpression>, rhs: Box<BooleanExpression>) -> Box<BooleanExpression> {
-    Box::new(BooleanExpression {
-        tpe: BooleanExpressionType::Or,
-        name: "|".to_string(),
-        children: vec![*lhs, *rhs],
-    })
-}
-
-fn build_not(expr: Box<BooleanExpression>) -> Box<BooleanExpression> {
-    Box::new(BooleanExpression {
-        tpe: BooleanExpressionType::Not,
-        name: "!".to_string(),
-        children: vec![*expr],
-    })
-}
-
-fn build_bit(name: String) -> Box<BooleanExpression> {
-    Box::new(BooleanExpression {
-        tpe: BooleanExpressionType::Bit,
-        name: name,
-        children: vec![],
-    })
-}
-
-fn build_symbol(name: String) -> Box<BooleanExpression> {
-    Box::new(BooleanExpression {
-        tpe: BooleanExpressionType::Symbol,
-        name: name,
-        children: vec![],
-    })
+// EGraph API.
+fn egraph_new() -> Box<BooleanEGraph> {
+    let egraph = EGraph::<BooleanLanguage, ()>::default().with_explanations_enabled();
+    Box::new(BooleanEGraph(egraph))
 }
 
 // Synthesizer API.
@@ -298,39 +237,117 @@ fn synthesizer_new(library_path: String, metric_name: String) -> Box<Synthesizer
 }
 
 fn synthesizer_run(
+    egraph: Box<BooleanEGraph>,
     synthesizer: Box<Synthesizer>,
     expr: Box<BooleanExpression>,
 ) -> Box<BooleanExpression> {
-    // TODO: do something...
-    expr
+    let best_expr = (*synthesizer).run(*egraph, *expr);
+    Box::new(best_expr)
+}
+
+// Expression builders.
+
+fn build_module(stmts: Vec<BooleanId>) -> Box<BooleanExpression> {
+    let mut stmt_ids: Vec<Id> = vec![];
+    for stmt in stmts {
+        stmt_ids.push(stmt.0);
+    }
+    let mut expr = RecExpr::default();
+    let enode = BooleanLanguage::Module(stmt_ids);
+    expr.add(enode);
+    Box::new(BooleanExpression(expr))
+}
+
+fn build_let(egraph: &mut BooleanEGraph, name: String, expr: Box<BooleanId>) -> Box<BooleanId> {
+    let name_symbol = build_symbol(egraph, name);
+    let enode = BooleanLanguage::Let([name_symbol.0, expr.0]);
+    let expr_id = egraph.0.add(enode);
+    Box::new(BooleanId(expr_id))
+}
+
+fn build_and(
+    egraph: &mut BooleanEGraph,
+    lhs: Box<BooleanId>,
+    rhs: Box<BooleanId>,
+) -> Box<BooleanId> {
+    let enode = BooleanLanguage::And([lhs.0, rhs.0]);
+    let expr_id = egraph.0.add(enode);
+    Box::new(BooleanId(expr_id))
+}
+
+fn build_or(
+    egraph: &mut BooleanEGraph,
+    lhs: Box<BooleanId>,
+    rhs: Box<BooleanId>,
+) -> Box<BooleanId> {
+    let enode = BooleanLanguage::Or([lhs.0, rhs.0]);
+    let expr_id = egraph.0.add(enode);
+    Box::new(BooleanId(expr_id))
+}
+
+fn build_not(egraph: &mut BooleanEGraph, input: Box<BooleanId>) -> Box<BooleanId> {
+    let enode = BooleanLanguage::Not([input.0]);
+    let expr_id = egraph.0.add(enode);
+    Box::new(BooleanId(expr_id))
+}
+
+fn build_num(egraph: &mut BooleanEGraph, num: i32) -> Box<BooleanId> {
+    let enode = BooleanLanguage::Num(num);
+    let expr_id = egraph.0.add(enode);
+    Box::new(BooleanId(expr_id))
+}
+
+fn build_symbol(egraph: &mut BooleanEGraph, name: String) -> Box<BooleanId> {
+    let enode = BooleanLanguage::Symbol(Symbol::from(name));
+    let expr_id = egraph.0.add(enode);
+    Box::new(BooleanId(expr_id))
 }
 
 #[cxx::bridge]
 mod ffi {
     extern "Rust" {
         type BooleanExpression;
+        type BooleanId;
         type Synthesizer;
+        type BooleanEGraph;
 
-        // Expression builders.
-        fn build_module(stmts: Vec<BooleanExpression>) -> Box<BooleanExpression>;
-        fn build_let(name: String, expr: Box<BooleanExpression>) -> Box<BooleanExpression>;
-        fn build_and(
-            lhs: Box<BooleanExpression>,
-            rhs: Box<BooleanExpression>,
-        ) -> Box<BooleanExpression>;
-        fn build_or(
-            lhs: Box<BooleanExpression>,
-            rhs: Box<BooleanExpression>,
-        ) -> Box<BooleanExpression>;
-        fn build_not(expr: Box<BooleanExpression>) -> Box<BooleanExpression>;
-        fn build_bit(name: String) -> Box<BooleanExpression>;
-        fn build_symbol(name: String) -> Box<BooleanExpression>;
+        // EGraph API.
+        fn egraph_new() -> Box<BooleanEGraph>;
 
         // Synthesizer API.
         fn synthesizer_new(library_path: String, metric_name: String) -> Box<Synthesizer>;
+
         fn synthesizer_run(
+            egraph: Box<BooleanEGraph>,
             synthesizer: Box<Synthesizer>,
             expr: Box<BooleanExpression>,
         ) -> Box<BooleanExpression>;
+
+        // Expression builders.
+        fn build_module(stmts: Vec<BooleanId>) -> Box<BooleanExpression>;
+
+        fn build_let(
+            egraph: &mut BooleanEGraph,
+            name: String,
+            expr: Box<BooleanId>,
+        ) -> Box<BooleanId>;
+
+        fn build_and(
+            egraph: &mut BooleanEGraph,
+            lhs: Box<BooleanId>,
+            rhs: Box<BooleanId>,
+        ) -> Box<BooleanId>;
+
+        fn build_or(
+            egraph: &mut BooleanEGraph,
+            lhs: Box<BooleanId>,
+            rhs: Box<BooleanId>,
+        ) -> Box<BooleanId>;
+
+        fn build_not(egraph: &mut BooleanEGraph, input: Box<BooleanId>) -> Box<BooleanId>;
+
+        fn build_num(egraph: &mut BooleanEGraph, num: i32) -> Box<BooleanId>;
+
+        fn build_symbol(egraph: &mut BooleanEGraph, name: String) -> Box<BooleanId>;
     }
 }

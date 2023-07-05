@@ -1,4 +1,5 @@
-use egg_netlist_synthesizer::Synthesizer;
+use egg::{EGraph, RecExpr};
+use egg_netlist_synthesizer::{BooleanEGraph, BooleanExpression, BooleanLanguage, Synthesizer};
 use std::env;
 
 fn main() {
@@ -6,5 +7,11 @@ fn main() {
 
     let synthesizer = Synthesizer::new(&args[1], &args[2]);
 
-    synthesizer.run(args[3].parse().unwrap());
+    let expr: RecExpr<BooleanLanguage> = args[3].parse().unwrap();
+
+    let egraph = EGraph::<BooleanLanguage, ()>::default().with_explanations_enabled();
+
+    synthesizer.run(BooleanEGraph(egraph), BooleanExpression(expr));
+
+    ()
 }
