@@ -176,8 +176,13 @@ impl Synthesizer {
         }
     }
 
-    pub fn run(&self, egraph: BooleanEGraph, start_expr: BooleanExpression) -> BooleanExpression {
-        // Get the underlying egraph and expression.
+    pub fn run(
+        &self,
+        mut egraph: BooleanEGraph,
+        start_expr: BooleanExpression,
+    ) -> BooleanExpression {
+        // Ensure the EGraph is ready after any mutations.
+        egraph.0.rebuild();
 
         // Run the optimizer with some debug info.
         let mut runner = Runner::default()
@@ -247,15 +252,14 @@ fn synthesizer_run(
 
 // Expression builders.
 
-fn build_module(stmts: Vec<BooleanId>) -> Box<BooleanExpression> {
+fn build_module(egraph: &mut BooleanEGraph, stmts: Vec<BooleanId>) -> Box<BooleanExpression> {
     let mut stmt_ids: Vec<Id> = vec![];
     for stmt in stmts {
         stmt_ids.push(stmt.0);
     }
-    let mut expr = RecExpr::default();
     let enode = BooleanLanguage::Module(stmt_ids);
-    expr.add(enode);
-    Box::new(BooleanExpression(expr))
+    let expr_id = egraph.0.add(enode);
+    Box::new(BooleanExpression(egraph.0.id_to_expr(expr_id)))
 }
 
 fn build_let(egraph: &mut BooleanEGraph, name: String, expr: Box<BooleanId>) -> Box<BooleanId> {
@@ -303,6 +307,14 @@ fn build_symbol(egraph: &mut BooleanEGraph, name: String) -> Box<BooleanId> {
     Box::new(BooleanId(expr_id))
 }
 
+fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>) -> () {
+    stmts.push(*expr);
+}
+
+fn print_expr(expr: &mut BooleanExpression) -> () {
+    println!("{}", expr.0.pretty(80));
+}
+
 #[cxx::bridge]
 mod ffi {
     extern "Rust" {
@@ -324,7 +336,10 @@ mod ffi {
         ) -> Box<BooleanExpression>;
 
         // Expression builders.
-        fn build_module(stmts: Vec<BooleanId>) -> Box<BooleanExpression>;
+        fn build_module(
+            egraph: &mut BooleanEGraph,
+            stmts: Vec<BooleanId>,
+        ) -> Box<BooleanExpression>;
 
         fn build_let(
             egraph: &mut BooleanEGraph,
@@ -349,5 +364,10 @@ mod ffi {
         fn build_num(egraph: &mut BooleanEGraph, num: i32) -> Box<BooleanId>;
 
         fn build_symbol(egraph: &mut BooleanEGraph, name: String) -> Box<BooleanId>;
+
+        // Helpers.
+        fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>);
+
+        fn print_expr(expr: &mut BooleanExpression) -> ();
     }
 }
