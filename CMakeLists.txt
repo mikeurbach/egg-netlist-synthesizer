@@ -10,6 +10,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Generate and compile a library.
 
+if (NOT DEFINED CBC_SOLVER_LIB)
+  message(FATAL_ERROR "Define CBC_SOLVER_LIB as the path to libCbcSolver.")
+endif()
+
 set(CARGO_CMD cargo build --release)
 set(TARGET_DIR "release")
 set(RUST_GEN_LIB "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_DIR}/libegg_netlist_synthesizer.a")
@@ -18,7 +22,7 @@ set(RUST_GEN_CXX "${CMAKE_CURRENT_BINARY_DIR}/egg_netlist_synthesizer.cpp")
 
 add_library(egg_netlist_synthesizer STATIC ${RUST_GEN_CXX})
 
-target_link_libraries(egg_netlist_synthesizer pthread dl ${RUST_GEN_LIB})
+target_link_libraries(egg_netlist_synthesizer pthread dl ${CBC_SOLVER_LIB} ${RUST_GEN_LIB})
 
 add_custom_command(
   OUTPUT ${RUST_GEN_CXX}
