@@ -307,6 +307,22 @@ fn build_symbol(egraph: &mut BooleanEGraph, name: String) -> Box<BooleanId> {
     Box::new(BooleanId(expr_id))
 }
 
+fn expr_get_module_body(expr: Box<BooleanExpression>) -> Vec<BooleanExpression> {
+    let expr_ref = expr.0.as_ref();
+    match expr_ref.last().unwrap() {
+        BooleanLanguage::Module(ids) => {
+            let mut exprs = vec![];
+            for id in ids {
+                let child_node = expr.0[*id].clone();
+                let child_expr = child_node.build_recexpr(|id| expr.0[id].clone());
+                exprs.push(BooleanExpression(child_expr));
+            }
+            exprs
+        }
+        _ => panic!("expected expr to be a module"),
+    }
+}
+
 fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>) -> () {
     stmts.push(*expr);
 }
@@ -364,6 +380,9 @@ mod ffi {
         fn build_num(egraph: &mut BooleanEGraph, num: i32) -> Box<BooleanId>;
 
         fn build_symbol(egraph: &mut BooleanEGraph, name: String) -> Box<BooleanId>;
+
+        // Expression query functions.
+        fn expr_get_module_body(expr: Box<BooleanExpression>) -> Vec<BooleanExpression>;
 
         // Helpers.
         fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>);
