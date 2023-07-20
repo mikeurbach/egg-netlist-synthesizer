@@ -45,6 +45,7 @@ define_language! {
       "!" = Not([Id; 1]),
       Num(i32),
       Symbol(Symbol),
+      Input(Symbol, Id),
       Gate(Symbol, Vec<Id>),
   }
 }
@@ -113,6 +114,7 @@ impl LpCostFunction<BooleanLanguage, ()> for &GateCostFunction {
             BooleanLanguage::Let(_) => 0.0,
             BooleanLanguage::Num(_) => 0.0,
             BooleanLanguage::Symbol(_) => 0.0,
+            BooleanLanguage::Input(_, _) => 0.0,
         };
 
         // Compute the cost of a subtree of expressions by taking the minimum
