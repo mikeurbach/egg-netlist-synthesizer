@@ -339,6 +339,18 @@ fn expr_get_let_symbol(expr: &BooleanExpression) -> String {
     }
 }
 
+fn expr_get_let_expr(expr: &BooleanExpression) -> Box<BooleanExpression> {
+    let expr_ref = expr.0.as_ref();
+    match expr_ref.last().unwrap() {
+        BooleanLanguage::Let([_, child_expr_id]) => {
+            let child_expr_node = expr.0[*child_expr_id].clone();
+            let child_expr = child_expr_node.build_recexpr(|id| expr.0[id].clone());
+            Box::new(BooleanExpression(child_expr))
+        }
+        _ => panic!("expected expr to be a let"),
+    }
+}
+
 fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>) -> () {
     stmts.push(*expr);
 }
@@ -401,6 +413,8 @@ mod ffi {
         fn expr_get_module_body(expr: Box<BooleanExpression>) -> Vec<BooleanExpression>;
 
         fn expr_get_let_symbol(expr: &BooleanExpression) -> String;
+
+        fn expr_get_let_expr(expr: &BooleanExpression) -> Box<BooleanExpression>;
 
         // Helpers.
         fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>);
