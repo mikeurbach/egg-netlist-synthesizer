@@ -43,9 +43,9 @@ define_language! {
       "&" = And([Id; 2]),
       "|" = Or([Id; 2]),
       "!" = Not([Id; 1]),
+      "input" = Input([Id; 2]),
       Num(i32),
       Symbol(Symbol),
-      Input(Symbol, Id),
       Gate(Symbol, Vec<Id>),
   }
 }
@@ -114,7 +114,7 @@ impl LpCostFunction<BooleanLanguage, ()> for &GateCostFunction {
             BooleanLanguage::Let(_) => 0.0,
             BooleanLanguage::Num(_) => 0.0,
             BooleanLanguage::Symbol(_) => 0.0,
-            BooleanLanguage::Input(_, _) => 0.0,
+            BooleanLanguage::Input(_) => 0.0,
         };
 
         // Compute the cost of a subtree of expressions by taking the minimum
@@ -353,6 +353,7 @@ fn expr_get_let_expr(expr: &BooleanExpression) -> Box<BooleanExpression> {
 
 fn expr_get_gate_name(expr: &BooleanExpression) -> String {
     let expr_ref = expr.0.as_ref();
+    dbg!(&expr.0);
     match expr_ref.last().unwrap() {
         BooleanLanguage::Gate(symbol, _) => symbol.to_string(),
         _ => panic!("expected expr to be a gate"),
@@ -361,13 +362,20 @@ fn expr_get_gate_name(expr: &BooleanExpression) -> String {
 
 fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String> {
     let expr_ref = expr.0.as_ref();
+    dbg!(&expr.0);
     match expr_ref.last().unwrap() {
         BooleanLanguage::Gate(_, input_ids) => {
             let mut names = vec![];
             for id in input_ids {
                 let input_node = expr.0[*id].clone();
                 match input_node {
-                    BooleanLanguage::Input(symbol, _) => names.push(symbol.to_string()),
+                    BooleanLanguage::Input([symbol_id, _]) => {
+                        let symbol_node = expr.0[symbol_id].clone();
+                        match symbol_node {
+                            BooleanLanguage::Symbol(symbol) => names.push(symbol.to_string()),
+                            _ => panic!("expected first child of let to be a symbol"),
+                        }
+                    }
                     _ => panic!("expected gate child expr to be an input"),
                 }
             }
@@ -379,13 +387,14 @@ fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String> {
 
 fn expr_get_gate_input_exprs(expr: &BooleanExpression) -> Vec<BooleanExpression> {
     let expr_ref = expr.0.as_ref();
+    dbg!(&expr.0);
     match expr_ref.last().unwrap() {
         BooleanLanguage::Gate(_, input_ids) => {
             let mut exprs = vec![];
             for id in input_ids {
                 let input_node = expr.0[*id].clone();
                 match input_node {
-                    BooleanLanguage::Input(_, expr_id) => {
+                    BooleanLanguage::Input([_, expr_id]) => {
                         let input_expr_node = expr.0[expr_id].clone();
                         let input_expr = input_expr_node.build_recexpr(|id| expr.0[id].clone());
                         exprs.push(BooleanExpression(input_expr))
