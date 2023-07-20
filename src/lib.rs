@@ -399,6 +399,22 @@ fn expr_get_gate_input_exprs(expr: &BooleanExpression) -> Vec<BooleanExpression>
     }
 }
 
+fn expr_is_symbol(expr: &BooleanExpression) -> bool {
+    let expr_ref = expr.0.as_ref();
+    match expr_ref.last().unwrap() {
+        BooleanLanguage::Symbol(_) => true,
+        _ => false,
+    }
+}
+
+fn expr_get_symbol(expr: &BooleanExpression) -> String {
+    let expr_ref = expr.0.as_ref();
+    match expr_ref.last().unwrap() {
+        BooleanLanguage::Symbol(symbol) => symbol.to_string(),
+        _ => panic!("expected expr to be a symbol"),
+    }
+}
+
 fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>) -> () {
     stmts.push(*expr);
 }
@@ -469,6 +485,10 @@ mod ffi {
         fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String>;
 
         fn expr_get_gate_input_exprs(expr: &BooleanExpression) -> Vec<BooleanExpression>;
+
+        fn expr_is_symbol(expr: &BooleanExpression) -> bool;
+
+        fn expr_get_symbol(expr: &BooleanExpression) -> String;
 
         // Helpers.
         fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>);
