@@ -353,7 +353,6 @@ fn expr_get_let_expr(expr: &BooleanExpression) -> Box<BooleanExpression> {
 
 fn expr_get_gate_name(expr: &BooleanExpression) -> String {
     let expr_ref = expr.0.as_ref();
-    dbg!(&expr.0);
     match expr_ref.last().unwrap() {
         BooleanLanguage::Gate(symbol, _) => symbol.to_string(),
         _ => panic!("expected expr to be a gate"),
@@ -362,7 +361,6 @@ fn expr_get_gate_name(expr: &BooleanExpression) -> String {
 
 fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String> {
     let expr_ref = expr.0.as_ref();
-    dbg!(&expr.0);
     match expr_ref.last().unwrap() {
         BooleanLanguage::Gate(_, input_ids) => {
             let mut names = vec![];
@@ -387,7 +385,6 @@ fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String> {
 
 fn expr_get_gate_input_exprs(expr: &BooleanExpression) -> Vec<BooleanExpression> {
     let expr_ref = expr.0.as_ref();
-    dbg!(&expr.0);
     match expr_ref.last().unwrap() {
         BooleanLanguage::Gate(_, input_ids) => {
             let mut exprs = vec![];
