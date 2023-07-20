@@ -377,6 +377,28 @@ fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String> {
     }
 }
 
+fn expr_get_gate_input_exprs(expr: &BooleanExpression) -> Vec<BooleanExpression> {
+    let expr_ref = expr.0.as_ref();
+    match expr_ref.last().unwrap() {
+        BooleanLanguage::Gate(_, input_ids) => {
+            let mut exprs = vec![];
+            for id in input_ids {
+                let input_node = expr.0[*id].clone();
+                match input_node {
+                    BooleanLanguage::Input(_, expr_id) => {
+                        let input_expr_node = expr.0[expr_id].clone();
+                        let input_expr = input_expr_node.build_recexpr(|id| expr.0[id].clone());
+                        exprs.push(BooleanExpression(input_expr))
+                    }
+                    _ => panic!("expected gate child expr to be an input"),
+                }
+            }
+            exprs
+        }
+        _ => panic!("expected expr to be a gate"),
+    }
+}
+
 fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>) -> () {
     stmts.push(*expr);
 }
@@ -445,6 +467,8 @@ mod ffi {
         fn expr_get_gate_name(expr: &BooleanExpression) -> String;
 
         fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String>;
+
+        fn expr_get_gate_input_exprs(expr: &BooleanExpression) -> Vec<BooleanExpression>;
 
         // Helpers.
         fn append_expr(stmts: &mut Vec<BooleanId>, expr: Box<BooleanId>);
