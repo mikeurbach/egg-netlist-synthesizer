@@ -44,6 +44,7 @@ define_language! {
       "|" = Or([Id; 2]),
       "!" = Not([Id; 1]),
       "input" = Input([Id; 2]),
+      "output" = Output(Id),
       Num(i32),
       Symbol(Symbol),
       Gate(Symbol, Vec<Id>),
@@ -115,6 +116,7 @@ impl LpCostFunction<BooleanLanguage, ()> for &GateCostFunction {
             BooleanLanguage::Num(_) => 0.0,
             BooleanLanguage::Symbol(_) => 0.0,
             BooleanLanguage::Input(_) => 0.0,
+            BooleanLanguage::Output(_) => 0.0,
         };
 
         // Compute the cost of a subtree of expressions by taking the minimum
@@ -374,7 +376,7 @@ fn expr_get_gate_input_names(expr: &BooleanExpression) -> Vec<String> {
                             _ => panic!("expected first child of let to be a symbol"),
                         }
                     }
-                    _ => panic!("expected gate child expr to be an input"),
+                    _ => (),
                 }
             }
             names
@@ -396,7 +398,7 @@ fn expr_get_gate_input_exprs(expr: &BooleanExpression) -> Vec<BooleanExpression>
                         let input_expr = input_expr_node.build_recexpr(|id| expr.0[id].clone());
                         exprs.push(BooleanExpression(input_expr))
                     }
-                    _ => panic!("expected gate child expr to be an input"),
+                    _ => (),
                 }
             }
             exprs
