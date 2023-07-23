@@ -150,8 +150,6 @@ impl Synthesizer {
         let mut rules: Vec<Rewrite<BooleanLanguage, ()>> = vec![
             rewrite!("commute-and"; "(& ?x ?y)" => "(& ?y ?x)"),
             rewrite!("commute-or"; "(| ?x ?y)" => "(| ?y ?x)"),
-            rewrite!("demorgan-and"; "(! (& ?x ?y))" => "(| (! ?x) (! ?y))"),
-            rewrite!("demorgan-or"; "(! (| ?x ?y))" => "(& (! ?x) (! ?y))"),
             multi_rewrite!("inline-let-and"; "?a = (let ?x ?y), ?b = (& ?x ?z)" => "?b = (& ?y ?z)"),
             multi_rewrite!("inline-let-or"; "?a = (let ?x ?y), ?b = (| ?x ?z)" => "?b = (| ?y ?z)"),
             multi_rewrite!("inline-let-not"; "?a = (let ?x ?y), ?b = (! ?x)" => "?b = (! ?y)"),
