@@ -192,6 +192,9 @@ impl Synthesizer {
             .with_expr(&start_expr.0)
             .run(&self.rules);
 
+        // Provide some debug output.
+        runner.print_report();
+
         // Instantiate an extractor.
         let mut extractor = LpExtractor::new(&runner.egraph, &self.cost_function);
 
