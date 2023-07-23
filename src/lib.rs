@@ -187,8 +187,7 @@ impl Synthesizer {
         egraph.0.rebuild();
 
         // Run the optimizer with some debug info.
-        let mut runner = Runner::default()
-            .with_explanations_enabled()
+        let runner = Runner::default()
             .with_egraph(egraph.0)
             .with_expr(&start_expr.0)
             .run(&self.rules);
@@ -198,29 +197,6 @@ impl Synthesizer {
 
         // Extract the best expression.
         let best_expr = extractor.solve(runner.roots[0]);
-
-        // Let explanations mutably borrow the runner.
-        drop(extractor);
-
-        // Provide some debug output.
-        runner.print_report();
-
-        println!(
-            "Explanation\n===========\n{}",
-            runner
-                .explain_equivalence(&start_expr.0, &best_expr)
-                .get_flat_string()
-        );
-
-        println!("\nResult\n======\n{}", best_expr);
-
-        // Produce a visualization of the EGraph.
-        runner
-            .egraph
-            .dot()
-            .with_config_line("ranksep=1")
-            .to_svg("egraph.svg")
-            .unwrap();
 
         BooleanExpression(best_expr)
     }

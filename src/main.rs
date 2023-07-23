@@ -11,7 +11,7 @@ fn main() {
 
     let egraph = EGraph::<BooleanLanguage, ()>::default().with_explanations_enabled();
 
-    synthesizer.run(BooleanEGraph(egraph), BooleanExpression(expr));
+    let best_expr = synthesizer.run(BooleanEGraph(egraph), BooleanExpression(expr));
 
-    ()
+    println!("{}", best_expr.0);
 }
