@@ -144,14 +144,18 @@ impl Synthesizer {
         let library = load_library(library_path).unwrap();
         let metric = Metric::from_str(metric_name).unwrap();
 
-        // Some axioms of Boolean logic. The goal is to allow exploration and
-        // canonicalize towards right-associative DNF, which is how the logical
-        // functions in the library are expressed.
+        // Rewrites to allow exploration by inlining expressions defined by a
+        // let into their users. The goal is to build up all the possible ways
+        // to formulate a boolean expression so they can be mapped to different
+        // possible gates, and the tool can decide between reuse versus
+        // inlining. For and and or, patterns for inlining to both the lhs and
+        // rhs are included, which is significantly cheaper than adding a
+        // generic pattern for commutativity.
         let mut rules: Vec<Rewrite<BooleanLanguage, ()>> = vec![
-            rewrite!("commute-and"; "(& ?x ?y)" => "(& ?y ?x)"),
-            rewrite!("commute-or"; "(| ?x ?y)" => "(| ?y ?x)"),
-            multi_rewrite!("inline-let-and"; "?a = (let ?x ?y), ?b = (& ?x ?z)" => "?b = (& ?y ?z)"),
-            multi_rewrite!("inline-let-or"; "?a = (let ?x ?y), ?b = (| ?x ?z)" => "?b = (| ?y ?z)"),
+            multi_rewrite!("inline-let-and-left"; "?a = (let ?x ?y), ?b = (& ?x ?z)" => "?b = (& ?y ?z)"),
+            multi_rewrite!("inline-let-or-left"; "?a = (let ?x ?y), ?b = (| ?x ?z)" => "?b = (| ?y ?z)"),
+            multi_rewrite!("inline-let-and-right"; "?a = (let ?x ?y), ?b = (& ?z ?x)" => "?b = (& ?z ?y)"),
+            multi_rewrite!("inline-let-or-right"; "?a = (let ?x ?y), ?b = (| ?z ?x)" => "?b = (| ?z ?y)"),
             multi_rewrite!("inline-let-not"; "?a = (let ?x ?y), ?b = (! ?x)" => "?b = (! ?y)"),
         ];
 
